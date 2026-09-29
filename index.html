@@ -495,7 +495,9 @@ var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
       addBtn.className = 'link';
       addBtn.textContent = '+ Ajouter une tâche';
       addBtn.addEventListener('click', function(){
-        sb.from('tasks').insert({ id: uid('t'), event_id: ev.id, title: 'Nouvelle tâche', responsible: '', status: 'not_started', day: null });
+        if (!sb) { showToast('Non connecté à Supabase'); return; }
+        sb.from('tasks').insert({ id: uid('t'), event_id: ev.id, title: 'Nouvelle tâche', responsible: '', status: 'not_started', day: null })
+          .then(function(r){ if (r.error) showToast('Échec : ' + r.error.message); });
       });
       addRow.appendChild(addBtn);
       card.appendChild(addRow);
