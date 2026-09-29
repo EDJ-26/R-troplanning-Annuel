@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Rétroplanning annuel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,500;0,6..72,600;1,6..72,500&family=Work+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<style>
+  :root {
+    --ink: #1c2430;
+    --ink-soft: #4b5566;
+    --paper: #f7f5f0;
+    --paper-raised: #ffffff;
+    --line: #ddd6c6;
+    --accent: #7a2e2e;
+    --accent-soft: #f1e4e0;
+    --brass: #a97f3f;
+    --brass-soft: #f3e9d6;
+    --sage: #3f6b4c;
+    --sage-soft: #e2ebe1;
+    --stone: #8d8576;
+    --stone-soft: #e9e6dd;
+    --radius-card: 10px;
+    --radius-pill: 999px;
+    box-sizing: border-box;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: "Work Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 40px 24px 120px; }
+  header.top { margin-bottom: 28px; }
+  .eyebrow-row { display: flex; align-items: baseline; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  h1 {
+    font-family: "Newsreader", Georgia, serif;
+    font-weight: 500;
+    font-size: clamp(28px, 5vw, 38px);
+    margin: 0 0 6px;
+    letter-spacing: -0.01em;
+  }
+  .sub { color: var(--ink-soft); font-size: 14.5px; max-width: 56ch; line-height: 1.5; margin: 0; }
+  .overall { display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--ink-soft); white-space: nowrap; }
+  .overall-track { width: 84px; height: 6px; border-radius: 3px; background: var(--line); overflow: hidden; }
+  .overall-fill { height: 100%; background: var(--sage); border-radius: 3px; transition: width .4s ease; }
+  .sync-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11.5px; color: var(--ink-soft); margin-top: 4px; }
+  .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--stone); }
+  .sync-pill.live .sync-dot { background: var(--sage); }
+  .sync-pill.off .sync-dot { background: var(--accent); }
+  .config-warning {
+    background: var(--accent-soft); border: 1px solid var(--accent); border-radius: 8px;
+    padding: 14px 16px; margin-bottom: 24px; font-size: 13.5px; line-height: 1.6; color: var(--ink);
+  }
+  .config-warning code { background: rgba(0,0,0,.06); padding: 1px 5px; border-radius: 4px; }
+
+  nav.months {
+    position: sticky; top: 0; z-index: 5;
+    display: flex; gap: 6px; overflow-x: auto;
+    padding: 12px 0; margin: 0 -24px 28px; padding-left: 24px; padding-right: 24px;
+    background: var(--paper); border-bottom: 1px solid var(--line); scrollbar-width: none;
+  }
+  nav.months::-webkit-scrollbar { display: none; }
+  nav.months button {
+    flex: none; font-family: inherit; font-size: 12.5px; font-weight: 600; color: var(--ink-soft);
+    background: transparent; border: 1px solid var(--line); border-radius: var(--radius-pill);
+    padding: 6px 13px; cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+  }
+  nav.months button:hover { border-color: var(--accent); color: var(--ink); }
+  nav.months button.has-events { color: var(--ink); }
+  nav.months.people { top: 41px; padding-top: 0; margin-top: -18px; z-index: 4; }
+  nav.months.people button.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .filter-summary {
+    display: flex; align-items: center; justify-content: space-between; gap: 10px;
+    font-size: 13px; color: var(--ink-soft); margin: 0 0 16px; padding: 8px 12px;
+    background: var(--accent-soft); border-radius: 8px;
+  }
+  .filter-summary strong { color: var(--ink); }
+  .filter-summary button.link { color: var(--accent); }
+
+  .timeline { position: relative; padding-left: 20px; }
+  .timeline::before { content: ""; position: absolute; left: 5px; top: 6px; bottom: 6px; width: 1px; background: var(--line); }
+  .month-block { margin-bottom: 34px; scroll-margin-top: 64px; }
+  .month-head { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; position: relative; }
+  .month-dot { position: absolute; left: -20px; width: 11px; height: 11px; border-radius: 50%; background: var(--paper-raised); border: 2px solid var(--line); }
+  .month-block.active .month-dot { border-color: var(--accent); }
+  .month-name { font-family: "Newsreader", Georgia, serif; font-size: 19px; font-weight: 500; font-style: italic; color: var(--ink); }
+  .month-empty { color: var(--ink-soft); font-size: 13.5px; padding: 4px 0 6px; }
+
+  .event-card { background: var(--paper-raised); border: 1px solid var(--line); border-radius: var(--radius-card); padding: 16px 18px 12px; margin-bottom: 12px; }
+  .event-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .event-name-input {
+    font-family: "Newsreader", Georgia, serif; font-size: 17px; font-weight: 500;
+    border: none; background: transparent; color: var(--ink);
+    padding: 2px 4px; border-radius: 4px; flex: 1; min-width: 140px;
+  }
+  .event-name-input:hover, .event-name-input:focus { background: var(--stone-soft); }
+  select.month-select {
+    font-family: inherit; font-size: 12.5px; color: var(--ink-soft);
+    background: var(--stone-soft); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; cursor: pointer;
+  }
+  input.day-input {
+    font-family: inherit; font-size: 12.5px; color: var(--ink-soft); text-align: center;
+    background: var(--stone-soft); border: 1px solid var(--line); border-radius: 6px; padding: 4px 2px; width: 44px;
+  }
+  .event-progress { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--ink-soft); }
+  .ring { width: 26px; height: 26px; flex: none; }
+  .icon-btn { background: none; border: none; color: var(--ink-soft); cursor: pointer; font-size: 15px; line-height: 1; padding: 4px 6px; border-radius: 5px; }
+  .icon-btn:hover { background: var(--accent-soft); color: var(--accent); }
+
+  table.tasks { width: 100%; border-collapse: collapse; margin-top: 10px; }
+  table.tasks th { text-align: left; font-size: 11px; font-weight: 600; color: var(--ink-soft); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+  table.tasks td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  table.tasks tr:last-child td { border-bottom: none; }
+  table.tasks input.cell {
+    width: 100%; border: none; background: transparent; font-family: inherit;
+    font-size: 13.5px; color: var(--ink); padding: 5px 4px; border-radius: 4px;
+  }
+  table.tasks input.cell:hover, table.tasks input.cell:focus { background: var(--stone-soft); }
+  td.col-status { width: 132px; }
+  td.col-del { width: 30px; text-align: center; }
+  th.col-day, td.col-day { width: 56px; text-align: center; }
+
+  .status-badge {
+    display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; border: none; cursor: pointer;
+    padding: 5px 10px; border-radius: var(--radius-pill); font-family: inherit; white-space: nowrap;
+  }
+  .status-badge .dot { width: 7px; height: 7px; border-radius: 50%; }
+  .status-badge.not_started { background: var(--stone-soft); color: var(--stone); }
+  .status-badge.not_started .dot { background: var(--stone); }
+  .status-badge.in_progress { background: var(--brass-soft); color: var(--brass); }
+  .status-badge.in_progress .dot { background: var(--brass); }
+  .status-badge.done { background: var(--sage-soft); color: var(--sage); }
+  .status-badge.done .dot { background: var(--sage); }
+
+  .add-task-row { margin-top: 8px; }
+  button.link { background: none; border: none; font-family: inherit; font-size: 12.5px; color: var(--accent); cursor: pointer; padding: 4px 2px; font-weight: 600; }
+  button.link:hover { text-decoration: underline; }
+
+  .add-event-block { margin-top: 28px; padding-left: 20px; }
+  .add-event-form {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+    background: var(--paper-raised); border: 1px dashed var(--line); border-radius: var(--radius-card); padding: 14px 16px;
+  }
+  .add-event-form input[type=text] {
+    flex: 1; min-width: 160px; font-family: inherit; font-size: 13.5px;
+    border: 1px solid var(--line); border-radius: 6px; padding: 7px 10px; background: var(--paper); color: var(--ink);
+  }
+  .add-event-form select { font-family: inherit; font-size: 13px; border: 1px solid var(--line); border-radius: 6px; padding: 7px 8px; background: var(--paper); color: var(--ink); }
+  button.primary { font-family: inherit; font-size: 13px; font-weight: 600; color: #fff; background: var(--accent); border: none; border-radius: 6px; padding: 8px 14px; cursor: pointer; }
+  button.primary:hover { opacity: .9; }
+
+  .toast {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(12px);
+    background: var(--ink); color: var(--paper); font-size: 12.5px; padding: 8px 16px; border-radius: var(--radius-pill);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; z-index: 20;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  footer.note { margin-top: 40px; padding-left: 20px; font-size: 12px; color: var(--ink-soft); line-height: 1.6; max-width: 60ch; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div id="config-warning-slot"></div>
+    <div class="eyebrow-row">
+      <div>
+        <h1>Rétroplanning annuel</h1>
+        <p class="sub">Le cycle des événements de l'année, avec les tâches à faire pour chacun, qui s'en occupe et où ça en est. Modifiable à plusieurs en même temps sans écrasement, via Supabase.</p>
+        <div class="sync-pill" id="sync-pill"><span class="sync-dot"></span><span id="sync-label">Connexion…</span></div>
+      </div>
+      <div class="overall" id="overall">
+        <span id="overall-label">0 % réalisé</span>
+        <span class="overall-track"><span class="overall-fill" id="overall-fill" style="width:0%"></span></span>
+      </div>
+    </div>
+  </header>
+
+  <nav class="months" id="months-nav"></nav>
+  <nav class="months people" id="people-nav"></nav>
+  <div class="timeline" id="timeline"></div>
+
+  <div class="add-event-block">
+    <div class="add-event-form">
+      <input type="text" id="new-event-name" placeholder="Nom du nouvel événement">
+      <select id="new-event-month"></select>
+      <button class="primary" id="add-event-btn">Ajouter l'événement</button>
+    </div>
+  </div>
+
+  <footer class="note">
+    Cliquez sur un statut pour le faire tourner (à faire → en cours → fait). Chaque tâche est enregistrée séparément dès que vous quittez le champ. Utilisez la deuxième rangée de filtres pour ne voir que les tâches d'une personne.
+  </footer>
+</div>
+<div class="toast" id="toast">Enregistré</div>
+
+<script>
+/* ============================================================
+   CONFIGURATION — à renseigner avant de déployer sur GitHub Pages
+   Récupérez ces deux valeurs dans Supabase : Settings > API
+   ============================================================ */
+var SUPABASE_URL = "https://spyoneunmaqldwwbadgu.supabase.co";
+var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
+/* ============================================================ */
+</script>
+<script>
+(function(){
+  "use strict";
+
+  var MONTH_NAMES = ["", "Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
+  var MONTH_ORDER = [9,10,11,12,1,2,3,4,5,6,7,8];
+
+  var SEED_EVENTS = [{"id": "e1", "name": "Rentrée des profs", "month": 8}, {"id": "e2", "name": "Rentrée des étudiants", "month": 9}, {"id": "e3", "name": "Réunions avec les étudiants de Columbia", "month": 10}, {"id": "e4", "name": "Masterclass", "month": 11}, {"id": "e5", "name": "NPDJ", "month": 12}, {"id": "e6", "name": "Journées Portes Ouvertes", "month": 1}, {"id": "e7", "name": "Admissions", "month": 3}, {"id": "e8", "name": "Intensives", "month": 6}];
+  var SEED_TASKS = [{"id": "t1", "event_id": "e1", "title": "Envoyer l'emploi du temps", "responsible": "Aurore", "status": "not_started", "day": null}, {"id": "t2", "event_id": "e1", "title": "Réunion de pré-rentrée", "responsible": "Direction académique", "status": "not_started", "day": null}, {"id": "t3", "event_id": "e1", "title": "Préparer les supports pédagogiques", "responsible": "Corps professoral", "status": "not_started", "day": null}, {"id": "t4", "event_id": "e2", "title": "Préparer le livret d'accueil", "responsible": "Scolarité", "status": "not_started", "day": null}, {"id": "t5", "event_id": "e2", "title": "Organiser la journée d'intégration", "responsible": "Vie étudiante", "status": "not_started", "day": null}, {"id": "t6", "event_id": "e2", "title": "Vérifier les inscriptions administratives", "responsible": "Scolarité", "status": "not_started", "day": null}, {"id": "t7", "event_id": "e2", "title": "Envoyer les accès à l'intranet", "responsible": "DSI", "status": "not_started", "day": null}, {"id": "t8", "event_id": "e3", "title": "Planifier le calendrier des échanges", "responsible": "Fleur", "status": "not_started", "day": null}, {"id": "t9", "event_id": "e3", "title": "Coordonner avec l'équipe Columbia", "responsible": "Fleur", "status": "not_started", "day": null}, {"id": "t10", "event_id": "e3", "title": "Organiser la logistique (visio / déplacement)", "responsible": "Fleur", "status": "not_started", "day": null}, {"id": "t11", "event_id": "e4", "title": "Identifier les intervenants", "responsible": "Direction académique", "status": "not_started", "day": null}, {"id": "t12", "event_id": "e4", "title": "Réserver l'amphithéâtre", "responsible": "Logistique", "status": "not_started", "day": null}, {"id": "t13", "event_id": "e4", "title": "Communication interne / externe", "responsible": "Communication", "status": "not_started", "day": null}, {"id": "t14", "event_id": "e4", "title": "Gérer les inscriptions", "responsible": "Scolarité", "status": "not_started", "day": null}, {"id": "t15", "event_id": "e5", "title": "À définir avec l'équipe", "responsible": "À définir", "status": "not_started", "day": null}, {"id": "t16", "event_id": "e6", "title": "Réserver la salle", "responsible": "Logistique", "status": "not_started", "day": null}, {"id": "t17", "event_id": "e6", "title": "Préparer les supports de communication", "responsible": "Communication", "status": "not_started", "day": null}, {"id": "t18", "event_id": "e6", "title": "Envoyer les invitations", "responsible": "Admissions", "status": "not_started", "day": null}, {"id": "t19", "event_id": "e6", "title": "Briefer les intervenants", "responsible": "Direction", "status": "not_started", "day": null}, {"id": "t20", "event_id": "e6", "title": "Debrief post-événement", "responsible": "Admissions", "status": "not_started", "day": null}, {"id": "t21", "event_id": "e7", "title": "Ouvrir la plateforme de candidature", "responsible": "Admissions", "status": "not_started", "day": null}, {"id": "t22", "event_id": "e7", "title": "Constituer le jury", "responsible": "Aurore", "status": "not_started", "day": null}, {"id": "t23", "event_id": "e7", "title": "Planifier les entretiens", "responsible": "Aurore", "status": "not_started", "day": null}, {"id": "t24", "event_id": "e7", "title": "Communiquer les résultats", "responsible": "Admissions", "status": "not_started", "day": null}, {"id": "t25", "event_id": "e8", "title": "Définir le programme", "responsible": "Pédagogie", "status": "not_started", "day": null}, {"id": "t26", "event_id": "e8", "title": "Réserver les salles", "responsible": "Logistique", "status": "not_started", "day": null}, {"id": "t27", "event_id": "e8", "title": "Confirmer les intervenants", "responsible": "Pédagogie", "status": "not_started", "day": null}, {"id": "t28", "event_id": "e8", "title": "Envoyer les convocations", "responsible": "Scolarité", "status": "not_started", "day": null}];
+
+  var sb = null;
+  var eventsById = {};
+  var tasksById = {};
+  var haveEvents = false, haveTasks = false;
+  var activeResponsible = null;
+  var toastTimer = null;
+  var configured = SUPABASE_URL.indexOf("COLLEZ_ICI") === -1 && SUPABASE_ANON_KEY.indexOf("COLLEZ_ICI") === -1;
+
+  function uid(prefix) { return prefix + Date.now().toString(36) + Math.random().toString(36).slice(2, 7); }
+  function statusLabel(s) { return s === 'done' ? 'Fait' : (s === 'in_progress' ? 'En cours' : 'À faire'); }
+  function nextStatus(s) { return s === 'not_started' ? 'in_progress' : (s === 'in_progress' ? 'done' : 'not_started'); }
+
+  function setSync(mode, label) {
+    var pill = document.getElementById('sync-pill');
+    pill.className = 'sync-pill ' + mode;
+    document.getElementById('sync-label').textContent = label;
+  }
+  function showToast(msg) {
+    var t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove('show'); }, 1600);
+  }
+
+  if (!configured) {
+    var warn = document.createElement('div');
+    warn.className = 'config-warning';
+    warn.innerHTML = "⚠️ Ce fichier n'est pas encore configuré. Ouvrez <code>index.html</code>, remplacez <code>SUPABASE_URL</code> et <code>SUPABASE_ANON_KEY</code> par les valeurs de votre projet Supabase (Settings → API), puis republiez sur GitHub.";
+    document.getElementById('config-warning-slot').appendChild(warn);
+    setSync('off', 'Non configuré');
+  }
+
+  function eventsArray() { return Object.keys(eventsById).map(function(id){ return eventsById[id]; }); }
+  function tasksForEvent(eventId) { return Object.keys(tasksById).map(function(id){ return tasksById[id]; }).filter(function(t){ return t.event_id === eventId; }); }
+  function allResponsibles() {
+    var set = {};
+    Object.keys(tasksById).forEach(function(id){
+      var r = (tasksById[id].responsible || '').trim();
+      if (r) set[r] = true;
+    });
+    return Object.keys(set).sort(function(a,b){ return a.localeCompare(b, 'fr'); });
+  }
+  function eventProgress(eventId) {
+    var tasks = tasksForEvent(eventId);
+    if (!tasks.length) return 0;
+    var done = tasks.filter(function(t){ return t.status === 'done'; }).length;
+    return Math.round(done / tasks.length * 100);
+  }
+  function overallProgress() {
+    var all = Object.keys(tasksById).map(function(id){ return tasksById[id]; });
+    if (!all.length) return 0;
+    var done = all.filter(function(t){ return t.status === 'done'; }).length;
+    return Math.round(done / all.length * 100);
+  }
+  function ringSVG(pct) {
+    var r = 10, c = 2*Math.PI*r;
+    var offset = c * (1 - pct/100);
+    return '<svg class="ring" viewBox="0 0 26 26">' +
+      '<circle cx="13" cy="13" r="'+r+'" fill="none" stroke="var(--line)" stroke-width="3"></circle>' +
+      '<circle cx="13" cy="13" r="'+r+'" fill="none" stroke="var(--sage)" stroke-width="3" ' +
+      'stroke-dasharray="'+c.toFixed(2)+'" stroke-dashoffset="'+offset.toFixed(2)+'" stroke-linecap="round" ' +
+      'transform="rotate(-90 13 13)"></circle></svg>';
+  }
+
+  function writeEvent(id, patch) {
+    if (!sb) return;
+    sb.from('events').update(patch).eq('id', id).then(function(r){ if (r.error) showToast('Échec : ' + r.error.message); });
+  }
+  function writeTask(id, patch) {
+    if (!sb) return;
+    sb.from('tasks').update(patch).eq('id', id).then(function(r){ if (r.error) showToast('Échec : ' + r.error.message); });
+  }
+
+  function render() {
+    if (!haveEvents || !haveTasks) return;
+    var currentMonth = (new Date()).getMonth() + 1;
+
+    var nav = document.getElementById('months-nav');
+    nav.innerHTML = '';
+    MONTH_ORDER.forEach(function(m){
+      var hasEvents = eventsArray().some(function(ev){ return ev.month === m; });
+      var btn = document.createElement('button');
+      btn.textContent = MONTH_NAMES[m];
+      if (hasEvents) btn.className = 'has-events';
+      btn.addEventListener('click', function(){
+        var target = document.getElementById('month-' + m);
+        if (target) target.scrollIntoView({behavior:'smooth', block:'start'});
+      });
+      nav.appendChild(btn);
+    });
+
+    var peopleNav = document.getElementById('people-nav');
+    peopleNav.innerHTML = '';
+    var people = allResponsibles();
+    if (people.length) {
+      var allBtn = document.createElement('button');
+      allBtn.textContent = 'Tout le monde';
+      if (!activeResponsible) allBtn.className = 'has-events active';
+      allBtn.addEventListener('click', function(){ activeResponsible = null; render(); });
+      peopleNav.appendChild(allBtn);
+      people.forEach(function(p){
+        var btn = document.createElement('button');
+        btn.textContent = p;
+        btn.className = 'has-events' + (activeResponsible === p ? ' active' : '');
+        btn.addEventListener('click', function(){ activeResponsible = (activeResponsible === p) ? null : p; render(); });
+        peopleNav.appendChild(btn);
+      });
+    }
+
+    var timeline = document.getElementById('timeline');
+    timeline.innerHTML = '';
+
+    if (activeResponsible) {
+      var count = Object.keys(tasksById).filter(function(id){ return (tasksById[id].responsible||'').trim() === activeResponsible; }).length;
+      var summary = document.createElement('div');
+      summary.className = 'filter-summary';
+      summary.innerHTML = '<span>Vue filtrée — <strong>' + count + '</strong> tâche' + (count>1?'s':'') + ' pour <strong>' + activeResponsible + '</strong></span>';
+      var clearBtn = document.createElement('button');
+      clearBtn.className = 'link';
+      clearBtn.textContent = 'Réinitialiser';
+      clearBtn.addEventListener('click', function(){ activeResponsible = null; render(); });
+      summary.appendChild(clearBtn);
+      timeline.appendChild(summary);
+    }
+
+    MONTH_ORDER.forEach(function(m){
+      var block = document.createElement('div');
+      block.className = 'month-block' + (m === currentMonth ? ' active' : '');
+      block.id = 'month-' + m;
+      var head = document.createElement('div');
+      head.className = 'month-head';
+      head.innerHTML = '<span class="month-dot"></span><span class="month-name">' + MONTH_NAMES[m] + '</span>';
+      block.appendChild(head);
+
+      var monthEvents = eventsArray().filter(function(ev){ return ev.month === m; });
+      if (activeResponsible) {
+        monthEvents = monthEvents.filter(function(ev){
+          return tasksForEvent(ev.id).some(function(t){ return (t.responsible||'').trim() === activeResponsible; });
+        });
+      }
+      if (!monthEvents.length) {
+        var empty = document.createElement('div');
+        empty.className = 'month-empty';
+        empty.textContent = activeResponsible ? 'Rien pour ' + activeResponsible + ' ce mois-ci.' : 'Aucun événement ce mois-ci.';
+        block.appendChild(empty);
+      } else {
+        monthEvents.forEach(function(ev){ block.appendChild(renderEventCard(ev)); });
+      }
+      timeline.appendChild(block);
+    });
+
+    var sel = document.getElementById('new-event-month');
+    sel.innerHTML = '';
+    MONTH_ORDER.forEach(function(m){
+      var opt = document.createElement('option');
+      opt.value = m; opt.textContent = MONTH_NAMES[m];
+      sel.appendChild(opt);
+    });
+
+    var pct = overallProgress();
+    document.getElementById('overall-label').textContent = pct + ' % réalisé';
+    document.getElementById('overall-fill').style.width = pct + '%';
+  }
+
+  function renderEventCard(ev) {
+    var pct = eventProgress(ev.id);
+    var card = document.createElement('div');
+    card.className = 'event-card';
+    var head = document.createElement('div');
+    head.className = 'event-head';
+
+    var nameInput = document.createElement('input');
+    nameInput.className = 'event-name-input';
+    nameInput.value = ev.name;
+    nameInput.addEventListener('change', function(){ writeEvent(ev.id, { name: nameInput.value.trim() || ev.name }); });
+
+    var monthSel = document.createElement('select');
+    monthSel.className = 'month-select';
+    MONTH_ORDER.forEach(function(m){
+      var opt = document.createElement('option');
+      opt.value = m; opt.textContent = MONTH_NAMES[m];
+      if (m === ev.month) opt.selected = true;
+      monthSel.appendChild(opt);
+    });
+    monthSel.addEventListener('change', function(){ writeEvent(ev.id, { month: parseInt(monthSel.value, 10) }); });
+
+    var prog = document.createElement('div');
+    prog.className = 'event-progress';
+    prog.innerHTML = ringSVG(pct) + '<span>' + pct + ' %</span>';
+
+    var delBtn = document.createElement('button');
+    delBtn.className = 'icon-btn';
+    delBtn.title = "Supprimer l'événement";
+    delBtn.textContent = '✕';
+    delBtn.addEventListener('click', function(){
+      if (!confirm('Supprimer l\'événement « ' + ev.name + ' » et toutes ses tâches ?')) return;
+      sb.from('tasks').delete().eq('event_id', ev.id).then(function(){
+        sb.from('events').delete().eq('id', ev.id);
+      });
+    });
+
+    head.appendChild(nameInput);
+    head.appendChild(monthSel);
+    head.appendChild(prog);
+    head.appendChild(delBtn);
+    card.appendChild(head);
+
+    var table = document.createElement('table');
+    table.className = 'tasks';
+    table.innerHTML = '<thead><tr><th>Tâche</th><th class="col-day">Jour</th><th>Responsable</th><th>Statut</th><th></th></tr></thead>';
+    var tbody = document.createElement('tbody');
+
+    var visibleTasks = tasksForEvent(ev.id);
+    if (activeResponsible) visibleTasks = visibleTasks.filter(function(t){ return (t.responsible||'').trim() === activeResponsible; });
+    visibleTasks = visibleTasks.slice().sort(function(a, b){ return (a.day||99) - (b.day||99); });
+
+    visibleTasks.forEach(function(task){
+      var tr = document.createElement('tr');
+
+      var tdTitle = document.createElement('td');
+      var titleInput = document.createElement('input');
+      titleInput.className = 'cell';
+      titleInput.value = task.title;
+      titleInput.addEventListener('change', function(){ writeTask(task.id, { title: titleInput.value.trim() || task.title }); });
+      tdTitle.appendChild(titleInput);
+
+      var tdDay = document.createElement('td');
+      tdDay.className = 'col-day';
+      var dayInput = document.createElement('input');
+      dayInput.type = 'number'; dayInput.className = 'day-input'; dayInput.min = '1'; dayInput.max = '31'; dayInput.placeholder = '—';
+      if (task.day) dayInput.value = task.day;
+      dayInput.addEventListener('change', function(){
+        var v = parseInt(dayInput.value, 10);
+        var day = (v >= 1 && v <= 31) ? v : null;
+        dayInput.value = day || '';
+        writeTask(task.id, { day: day });
+      });
+      tdDay.appendChild(dayInput);
+
+      var tdResp = document.createElement('td');
+      var respInput = document.createElement('input');
+      respInput.className = 'cell';
+      respInput.value = task.responsible || '';
+      respInput.placeholder = 'À définir';
+      respInput.addEventListener('change', function(){ writeTask(task.id, { responsible: respInput.value.trim() }); });
+      tdResp.appendChild(respInput);
+
+      var tdStatus = document.createElement('td');
+      tdStatus.className = 'col-status';
+      var badge = document.createElement('button');
+      badge.className = 'status-badge ' + task.status;
+      badge.innerHTML = '<span class="dot"></span>' + statusLabel(task.status);
+      badge.addEventListener('click', function(){ writeTask(task.id, { status: nextStatus(task.status) }); });
+      tdStatus.appendChild(badge);
+
+      var tdDel = document.createElement('td');
+      tdDel.className = 'col-del';
+      var tDelBtn = document.createElement('button');
+      tDelBtn.className = 'icon-btn'; tDelBtn.title = 'Supprimer la tâche'; tDelBtn.textContent = '×';
+      tDelBtn.addEventListener('click', function(){ sb.from('tasks').delete().eq('id', task.id); });
+      tdDel.appendChild(tDelBtn);
+
+      tr.appendChild(tdTitle); tr.appendChild(tdDay); tr.appendChild(tdResp); tr.appendChild(tdStatus); tr.appendChild(tdDel);
+      tbody.appendChild(tr);
+    });
+
+    table.appendChild(tbody);
+    card.appendChild(table);
+
+    if (!activeResponsible) {
+      var addRow = document.createElement('div');
+      addRow.className = 'add-task-row';
+      var addBtn = document.createElement('button');
+      addBtn.className = 'link';
+      addBtn.textContent = '+ Ajouter une tâche';
+      addBtn.addEventListener('click', function(){
+        sb.from('tasks').insert({ id: uid('t'), event_id: ev.id, title: 'Nouvelle tâche', responsible: '', status: 'not_started', day: null });
+      });
+      addRow.appendChild(addBtn);
+      card.appendChild(addRow);
+    }
+    return card;
+  }
+
+  document.getElementById('add-event-btn').addEventListener('click', function(){
+    if (!sb) return;
+    var nameInput = document.getElementById('new-event-name');
+    var monthSel = document.getElementById('new-event-month');
+    var name = nameInput.value.trim();
+    if (!name) { nameInput.focus(); return; }
+    var eventId = uid('e');
+    sb.from('events').insert({ id: eventId, name: name, month: parseInt(monthSel.value, 10) }).then(function(r){
+      if (r.error) { showToast('Échec : ' + r.error.message); return; }
+      sb.from('tasks').insert({ id: uid('t'), event_id: eventId, title: 'Première tâche', responsible: '', status: 'not_started', day: null });
+    });
+    nameInput.value = '';
+  });
+
+  async function seedIfEmpty() {
+    var lock = await sb.from('meta').insert({ key: 'seeded', value: 'true' });
+    if (lock.error) return; // someone already seeded (unique key conflict) — that's fine
+    for (var i = 0; i < SEED_EVENTS.length; i++) {
+      await sb.from('events').insert(SEED_EVENTS[i]);
+    }
+    for (var j = 0; j < SEED_TASKS.length; j++) {
+      await sb.from('tasks').insert(SEED_TASKS[j]);
+    }
+  }
+
+  async function init() {
+    if (!configured || !window.supabase) return;
+    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    setSync('live', 'Connecté');
+
+    try {
+      var check = await sb.from('events').select('id').limit(1);
+      if (!check.error && check.data && check.data.length === 0) await seedIfEmpty();
+    } catch (e) { /* ignore, snapshot below will still populate once seeding lands */ }
+
+    async function refreshEvents() {
+      var r = await sb.from('events').select('*');
+      if (r.error) { setSync('off', 'Erreur : ' + r.error.message); return; }
+      var map = {};
+      r.data.forEach(function(row){ map[row.id] = row; });
+      eventsById = map; haveEvents = true; render();
+    }
+    async function refreshTasks() {
+      var r = await sb.from('tasks').select('*');
+      if (r.error) { setSync('off', 'Erreur : ' + r.error.message); return; }
+      var map = {};
+      r.data.forEach(function(row){ map[row.id] = row; });
+      tasksById = map; haveTasks = true; render();
+    }
+
+    await refreshEvents();
+    await refreshTasks();
+
+    sb.channel('public:events')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'events' }, refreshEvents)
+      .subscribe();
+    sb.channel('public:tasks')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'tasks' }, refreshTasks)
+      .subscribe();
+  }
+
+  init();
+})();
+</script>
+</body>
+</html>
