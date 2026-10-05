@@ -415,8 +415,11 @@ var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
     delBtn.textContent = '✕';
     delBtn.addEventListener('click', function(){
       if (!confirm('Supprimer l\'événement « ' + ev.name + ' » et toutes ses tâches ?')) return;
-      sb.from('tasks').delete().eq('event_id', ev.id).then(function(){
-        sb.from('events').delete().eq('id', ev.id);
+      sb.from('tasks').delete().eq('event_id', ev.id).then(function(r1){
+        if (r1.error) { showToast('Échec suppression tâches : ' + r1.error.message); return; }
+        sb.from('events').delete().eq('id', ev.id).then(function(r2){
+          if (r2.error) showToast('Échec suppression événement : ' + r2.error.message);
+        });
       });
     });
 
@@ -478,7 +481,9 @@ var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
       tdDel.className = 'col-del';
       var tDelBtn = document.createElement('button');
       tDelBtn.className = 'icon-btn'; tDelBtn.title = 'Supprimer la tâche'; tDelBtn.textContent = '×';
-      tDelBtn.addEventListener('click', function(){ sb.from('tasks').delete().eq('id', task.id); });
+      tDelBtn.addEventListener('click', function(){
+        sb.from('tasks').delete().eq('id', task.id).then(function(r){ if (r.error) showToast('Échec suppression : ' + r.error.message); });
+      });
       tdDel.appendChild(tDelBtn);
 
       tr.appendChild(tdTitle); tr.appendChild(tdDay); tr.appendChild(tdResp); tr.appendChild(tdStatus); tr.appendChild(tdDel);
