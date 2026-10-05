@@ -353,7 +353,8 @@ var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
       head.innerHTML = '<span class="month-dot"></span><span class="month-name">' + MONTH_NAMES[m] + '</span>';
       block.appendChild(head);
 
-      var monthEvents = eventsArray().filter(function(ev){ return ev.month === m; });
+      var monthEvents = eventsArray().filter(function(ev){ return ev.month === m; })
+        .sort(function(a, b){ return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0); });
       if (activeResponsible) {
         monthEvents = monthEvents.filter(function(ev){
           return tasksForEvent(ev.id).some(function(t){ return (t.responsible||'').trim() === activeResponsible; });
@@ -436,7 +437,11 @@ var SUPABASE_ANON_KEY = "sb_publishable_sODDNzk1PHEHNs545XsQrg_diOuli-G";
 
     var visibleTasks = tasksForEvent(ev.id);
     if (activeResponsible) visibleTasks = visibleTasks.filter(function(t){ return (t.responsible||'').trim() === activeResponsible; });
-    visibleTasks = visibleTasks.slice().sort(function(a, b){ return (a.day||99) - (b.day||99); });
+    visibleTasks = visibleTasks.slice().sort(function(a, b){
+      var d = (a.day||99) - (b.day||99);
+      if (d !== 0) return d;
+      return a.id < b.id ? -1 : (a.id > b.id ? 1 : 0);
+    });
 
     visibleTasks.forEach(function(task){
       var tr = document.createElement('tr');
